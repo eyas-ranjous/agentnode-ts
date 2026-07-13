@@ -1,15 +1,15 @@
 export {
   AgentNode,
   type AgentNodeOptions,
-} from "./AgentNode.js";
+} from "./src/AgentNode.js";
 
 export {
   type Message,
   type Model,
   type ModelResponse,
-} from "./models/Model.js";
+} from "./src/models/Model.js";
 
 export {
   OpenAIModel,
   type OpenAIModelOptions,
-} from "./models/OpenAIModel.js";
+} from "./src/models/OpenAIModel.js";
