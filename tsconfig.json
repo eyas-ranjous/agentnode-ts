@@ -3,11 +3,10 @@
     "rootDir": "./src",
     "outDir": "./dist",
 
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "ESNext",
     "lib": ["ESNext"],
-
     "types": ["node"],
 
     "strict": true,
