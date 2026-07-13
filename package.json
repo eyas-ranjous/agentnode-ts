@@ -2,6 +2,7 @@
   "name": "agentnode-ts",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -18,8 +19,11 @@
   },
   "homepage": "https://github.com/eyas-ranjous/agentnode-ts#readme",
   "dependencies": {
-    "@types/node": "^26.1.1",
+    "openai": "^6.46.0",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
   }
 }
