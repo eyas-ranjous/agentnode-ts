@@ -1,5 +1,8 @@
 # agentnode-ts
 
+[![npm](https://img.shields.io/npm/v/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
+[![npm](https://img.shields.io/npm/dm/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
+
 A lightweight AI agent framework for TypeScript.
 
 ## Features
