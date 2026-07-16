@@ -1,12 +1,12 @@
 export {
   AgentNode,
   type AgentNodeOptions,
-} from "./src/AgentNode.js";
+} from "./AgentNode.js";
 
 export {
   OpenAIModel,
   type OpenAIModelOptions,
-} from "./src/models/OpenAIModel.js";
+} from "./models/OpenAIModel.js";
 
 export {
   type Message,
@@ -14,10 +14,10 @@ export {
   type ModelInput,
   type ModelOutput,
   type ToolCall,
-} from "./src/models/Model.js";
+} from "./models/Model.js";
 
 export {
   type Tool,
   type ToolDefinition,
   type ToolInputSchema,
-} from "./src/tools/Tool.js";
+} from "./tools/Tool.js";

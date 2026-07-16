@@ -1,6 +1,6 @@
 import type {
   Tool,
-} from "../../index";
+} from "../../src/index.js";
 
 export const getCurrentTimeTool: Tool = {
   name: "get_current_time",
