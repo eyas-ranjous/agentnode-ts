@@ -17,8 +17,6 @@ const agent = new AgentNode({
   tools: [getCurrentTimeTool],
 });
 
-const response = await agent.run(
-  "What time is it in San Francisco?",
-);
+const response = await agent.run("What time is it in San Francisco?");
 
 console.log(response.text);

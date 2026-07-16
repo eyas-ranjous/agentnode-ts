@@ -16,11 +16,13 @@ export const getCurrentTimeTool: Tool = {
     required: ["timeZone"],
     additionalProperties: false,
   },
+
   async execute(input: any) {
     const timeZone = input.timeZone;
     if (typeof timeZone !== "string") {
       throw new Error("timeZone must be a string.");
     }
+
     return {
       timeZone,
       currentTime:

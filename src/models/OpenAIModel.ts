@@ -38,9 +38,7 @@ export class OpenAIModel implements Model {
     });
 
     const toolCalls: ToolCall[] = response.output.flatMap((item) => {
-      if (item.type !== "function_call") {
-        return [];
-      }
+      if (item.type !== "function_call") return [];
 
       return [{
         id: item.call_id,

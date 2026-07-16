@@ -37,11 +37,7 @@ export class AgentNode {
           `Duplicate tool: ${tool.name}`,
         );
       }
-
-      this.toolRegistry.set(
-        tool.name,
-        tool,
-      );
+      this.toolRegistry.set(tool.name, tool);
     }
 
     this.toolDefinitions = this.tools.map((tool) => ({
