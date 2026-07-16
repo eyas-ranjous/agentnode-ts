@@ -1,19 +1,42 @@
 {
   "name": "agentnode-ts",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "A lightweight AI agent framework for TypeScript.",
   "type": "module",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "tsx examples/current-time/index.ts",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eyas-ranjous/agentnode-ts.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "ai",
+    "agent",
+    "llm",
+    "openai",
+    "typescript",
+    "framework",
+    "tool-calling"
+  ],
+  "author": "Eyas Ranjous",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/eyas-ranjous/agentnode-ts/issues"
   },
@@ -25,5 +48,8 @@
     "@types/node": "^26.1.1",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

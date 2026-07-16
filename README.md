@@ -115,14 +115,6 @@ This framework is under development. Some of the planned features include:
 - Multi-step planning
 - Additional model providers
 
-## Article
-
-This repository accompanies the article:
-
-**Building an AI Agent Framework in TypeScript**
-
-It explains the design decisions behind the framework and walks through building it step by step.
-
 ## License
 
 MIT
