@@ -63,26 +63,37 @@ const firstResponse = await agent.run(
 );
 console.log(firstResponse.text);
 
+// Blue is a great choice! Is there something specific you'd like to know or discuss about the color blue?
+
 const secondResponse = await agent.run(
   "What is my favorite color?",
 );
-
 console.log(secondResponse.text);
+
+// Your favorite color is blue.
+```
+
+You can also continue from existing history:
+
+```ts
+const history = agent.getHistory();
+const restoredAgent = new AgentNode({
+  model,
+  instructions: "You are a concise and helpful assistant.",
+  history,
+});
+
+const restoredResponse = await restoredAgent.run(
+  "What fact did I share with you?",
+);
+console.log(restoredResponse.text);
+// You shared that your favorite color is blue.
 ```
 
 Use one `AgentNode` per conversation. Start over with:
 
 ```ts
 agent.reset();
-```
-
-You can also continue from existing history:
-
-```ts
-const restoredAgent = new AgentNode({
-  model,
-  history: agent.getHistory(),
-});
 ```
 
 ## Tools
