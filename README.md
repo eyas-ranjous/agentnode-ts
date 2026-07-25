@@ -58,15 +58,16 @@ console.log(response.text);
 An agent remembers earlier messages across calls to `run()`:
 
 ```ts
-await agent.run(
-  "My favorite programming language is TypeScript.",
+const firstResponse = await agent.run(
+  "My favorite color is blue.",
+);
+console.log(firstResponse.text);
+
+const secondResponse = await agent.run(
+  "What is my favorite color?",
 );
 
-const response = await agent.run(
-  "What is my favorite programming language?",
-);
-
-console.log(response.text);
+console.log(secondResponse.text);
 ```
 
 Use one `AgentNode` per conversation. Start over with:
