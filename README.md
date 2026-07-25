@@ -62,14 +62,12 @@ const firstResponse = await agent.run(
   "My favorite color is blue.",
 );
 console.log(firstResponse.text);
-
 // Blue is a great choice! Is there something specific you'd like to know or discuss about the color blue?
 
 const secondResponse = await agent.run(
   "What is my favorite color?",
 );
 console.log(secondResponse.text);
-
 // Your favorite color is blue.
 ```
 
