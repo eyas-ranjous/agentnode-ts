@@ -5,19 +5,28 @@
 
 A lightweight AI agent framework for TypeScript.
 
+> [!NOTE]
+> **agentnode-ts** is under active development. APIs and capabilities may change
+> as the framework evolves.
+
 ## Features
 
-- 🤖 Provider-independent `Model` interface
-- 🔄 Automatic execution loop
-- 🛠️ Tool registration and execution
-- 🔁 Multiple tool calls per iteration
-- 🧩 Designed for multiple language model providers
-- 📦 Fully typed TypeScript API
+- Multi-turn conversations
+- Custom tool calling
+- Multiple tool calls in one run
+- OpenAI support
+- Fully typed TypeScript API
 
 ## Installation
 
 ```bash
 npm install agentnode-ts
+```
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="your-api-key"
 ```
 
 ## Quick Start
@@ -34,66 +43,125 @@ const model = new OpenAIModel({
 
 const agent = new AgentNode({
   model,
-  instructions: "You are a helpful assistant.",
+  instructions: "You are a concise and helpful assistant.",
 });
 
 const response = await agent.run(
-  "Explain what an AI agent is."
+  "Explain what an AI agent is in one sentence.",
 );
 
 console.log(response.text);
 ```
 
-## Defining a Tool
+## Conversations
+
+An agent remembers earlier messages across calls to `run()`:
 
 ```ts
-import type { Tool } from "agentnode-ts";
+await agent.run(
+  "My favorite programming language is TypeScript.",
+);
 
-export const getCurrentTimeTool: Tool = {
+const response = await agent.run(
+  "What is my favorite programming language?",
+);
+
+console.log(response.text);
+```
+
+Use one `AgentNode` per conversation. Start over with:
+
+```ts
+agent.reset();
+```
+
+You can also continue from existing history:
+
+```ts
+const restoredAgent = new AgentNode({
+  model,
+  history: agent.getHistory(),
+});
+```
+
+## Tools
+
+Define a tool:
+
+```ts
+import type {
+  Tool,
+} from "agentnode-ts";
+
+const getCurrentTimeTool: Tool = {
   name: "get_current_time",
-
-  description: "Returns the current time for a given time zone.",
-
+  description: "Get the current date and time for an IANA time zone.",
   inputSchema: {
     type: "object",
     properties: {
       timeZone: {
         type: "string",
+        description: "An IANA time zone such as America/Los_Angeles.",
       },
     },
     required: ["timeZone"],
+    additionalProperties: false,
   },
 
   async execute(input) {
+    const timeZone = input.timeZone;
+    if (typeof timeZone !== "string") {
+      throw new Error("timeZone must be a string.");
+    }
+
     return {
-      time: new Date().toISOString(),
+      currentTime: new Intl.DateTimeFormat(
+        "en-US",
+        {
+          dateStyle: "full",
+          timeStyle: "long",
+          timeZone,
+        },
+      ).format(new Date()),
     };
   },
 };
 ```
 
-Register the tool when creating the agent.
+Register the tool and run the agent:
 
 ```ts
 const agent = new AgentNode({
   model,
+  instructions: "You are a concise and helpful assistant.",
   tools: [getCurrentTimeTool],
 });
+
+const response = await agent.run(
+  "What time is it in San Francisco?",
+);
+
+console.log(response.text);
 ```
 
-The framework automatically:
-
-- sends tool definitions to the language model
-- executes requested tools
-- updates the conversation context
-- continues the execution loop until a final response is produced
-
 ## Examples
+
+From a cloned repository, install dependencies:
+
+```bash
+npm install
+```
 
 Run the basic example:
 
 ```bash
 npx tsx examples/basic.ts
+```
+
+Run the conversation example:
+
+```bash
+npx tsx examples/conversation/index.ts
 ```
 
 Run the tool-calling example:
@@ -104,19 +172,17 @@ npx tsx examples/current-time/index.ts
 
 ## Supported Providers
 
-Current:
 - OpenAI
 
 ## Roadmap
 
-This framework is under development. Some of the planned features include:
-
+- Context window management
 - Streaming responses
-- Memory
-- MCP support
 - Structured output
-- Multi-step planning
 - Additional model providers
+- Persistent memory
+- MCP support
+- Multi-step planning
 
 ## License
 
