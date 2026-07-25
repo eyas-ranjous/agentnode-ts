@@ -4,6 +4,14 @@ import type {
   ModelOutput,
 } from "./models/Model.js";
 
+import {
+  type AgentSession,
+} from "./sessions/AgentSession.js";
+
+import {
+  InMemoryAgentSession,
+} from "./sessions/InMemoryAgentSession.js";
+
 import type {
   Tool,
   ToolDefinition,
@@ -14,6 +22,7 @@ export type AgentNodeOptions = {
   instructions?: string;
   tools?: Tool[];
   maxIterations?: number;
+  history?: readonly Message[];
 };
 
 export class AgentNode {
@@ -23,6 +32,7 @@ export class AgentNode {
   private readonly toolDefinitions: ToolDefinition[];
   private readonly toolRegistry: Map<string, Tool>;
   private readonly maxIterations: number;
+  private readonly session: AgentSession;
 
   constructor(options: AgentNodeOptions) {
     this.model = options.model;
@@ -45,23 +55,40 @@ export class AgentNode {
       description: tool.description,
       inputSchema: tool.inputSchema,
     }));
-  }
 
-  async run(input: string): Promise<ModelOutput> {
-    const messages: Message[] = [];
-
+    const baseHistory: Message[] = [];
     if (this.instructions) {
-      messages.push({
+      baseHistory.push({
         role: "system",
         content: this.instructions,
       });
     }
 
-    messages.push({
-      role: "user",
-      content: input,
-    });
+    let history = baseHistory;
+    if (options.history !== undefined) {
+      history = [...getInitialHistory(options.history)];
+    }
 
+    this.session = new InMemoryAgentSession({
+      history,
+      baseHistory,
+      run: (sessionHistory) => this.runLoop(sessionHistory),
+    });
+  }
+
+  async run(input: string): Promise<ModelOutput> {
+    return this.session.run(input);
+  }
+
+  getHistory(): readonly Message[] {
+    return this.session.getHistory();
+  }
+
+  reset(): void {
+    this.session.reset();
+  }
+
+  private async runLoop(messages: Message[]): Promise<ModelOutput> {
     for (let iteration = 0; iteration < this.maxIterations; iteration += 1) {
       const output = await this.model.respond({
         messages,
@@ -71,7 +98,7 @@ export class AgentNode {
       messages.push({
         role: "assistant",
         content: output.text,
-        toolCalls: output.toolCalls,
+        toolCalls: structuredClone(output.toolCalls),
       });
 
       if (output.toolCalls.length === 0) {
@@ -95,4 +122,12 @@ export class AgentNode {
 
     throw new Error(`Agent exceeded ${this.maxIterations} iterations.`);
   }
+}
+
+function getInitialHistory(history: readonly Message[]): readonly Message[] {
+  if (!Array.isArray(history)) {
+    throw new Error("Agent history must be an array.");
+  }
+
+  return history;
 }
