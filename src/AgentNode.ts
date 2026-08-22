@@ -2,6 +2,8 @@ import type {
   Message,
   Model,
   ModelOutput,
+  ResponseFormat,
+  StreamChunk,
 } from "./models/Model.js";
 
 import {
@@ -23,6 +25,7 @@ export type AgentNodeOptions = {
   tools?: Tool[];
   maxIterations?: number;
   history?: readonly Message[];
+  responseFormat?: ResponseFormat;
 };
 
 export class AgentNode {
@@ -32,6 +35,7 @@ export class AgentNode {
   private readonly toolDefinitions: ToolDefinition[];
   private readonly toolRegistry: Map<string, Tool>;
   private readonly maxIterations: number;
+  private readonly responseFormat: ResponseFormat | undefined;
   private readonly session: AgentSession;
 
   constructor(options: AgentNodeOptions) {
@@ -39,6 +43,7 @@ export class AgentNode {
     this.instructions = options.instructions;
     this.tools = options.tools ?? [];
     this.maxIterations = options.maxIterations ?? 10;
+    this.responseFormat = options.responseFormat;
     this.toolRegistry = new Map();
 
     for (const tool of this.tools) {
@@ -80,6 +85,28 @@ export class AgentNode {
     return this.session.run(input);
   }
 
+  async *runStream(input: string): AsyncIterable<StreamChunk> {
+    if (!this.model.respondStream) {
+      throw new Error("Streaming is not supported by the current model.");
+    }
+
+    const messages = this.getHistoryForStream(input);
+    const streamInput: Parameters<NonNullable<typeof this.model.respondStream>>[0] = {
+      messages,
+      tools: this.toolDefinitions,
+    };
+    if (this.responseFormat) {
+      streamInput.responseFormat = this.responseFormat;
+    }
+    yield* this.model.respondStream(streamInput);
+  }
+
+  private getHistoryForStream(input: string): Message[] {
+    const history = [...this.getHistory()];
+    history.push({ role: "user", content: input });
+    return history;
+  }
+
   getHistory(): readonly Message[] {
     return this.session.getHistory();
   }
@@ -90,10 +117,14 @@ export class AgentNode {
 
   private async runLoop(messages: Message[]): Promise<ModelOutput> {
     for (let iteration = 0; iteration < this.maxIterations; iteration += 1) {
-      const output = await this.model.respond({
+      const respondInput: Parameters<typeof this.model.respond>[0] = {
         messages,
         tools: this.toolDefinitions,
-      });
+      };
+      if (this.responseFormat) {
+        respondInput.responseFormat = this.responseFormat;
+      }
+      const output = await this.model.respond(respondInput);
 
       messages.push({
         role: "assistant",

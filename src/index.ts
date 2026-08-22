@@ -13,6 +13,8 @@ export {
   type Model,
   type ModelInput,
   type ModelOutput,
+  type ResponseFormat,
+  type StreamChunk,
   type ToolCall,
 } from "./models/Model.js";
 

@@ -6,6 +6,7 @@ import {
   type Model,
   type ModelInput,
   type ModelOutput,
+  type StreamChunk,
   type Tool,
 } from "../src/index.js";
 
@@ -26,6 +27,14 @@ class ScriptedModel implements Model {
     }
 
     return structuredClone(response);
+  }
+}
+
+class ScriptedStreamingModel extends ScriptedModel {
+  async *respondStream(input: ModelInput): AsyncIterable<StreamChunk> {
+    this.inputs.push(structuredClone(input));
+    yield { type: "text_delta", delta: "Hello" };
+    yield { type: "text_delta", delta: " world" };
   }
 }
 
@@ -296,3 +305,47 @@ function toolOutput(
     }],
   };
 }
+
+test("passes responseFormat to the model", async () => {
+  const model = new ScriptedModel([finalOutput("done")]);
+  const responseFormat = {
+    type: "json_schema" as const,
+    name: "Answer",
+    jsonSchema: { type: "object" },
+    strict: true,
+  };
+
+  const agent = new AgentNode({ model, responseFormat });
+  await agent.run("test");
+
+  assert.deepEqual(model.inputs[0]?.responseFormat, responseFormat);
+});
+
+test("runStream yields chunks from model", async () => {
+  const model = new ScriptedStreamingModel([]);
+  const agent = new AgentNode({ model });
+
+  const chunks: StreamChunk[] = [];
+  for await (const chunk of agent.runStream("hi")) {
+    chunks.push(chunk);
+  }
+
+  assert.equal(chunks.length, 2);
+  assert.deepEqual(chunks[0], { type: "text_delta", delta: "Hello" });
+  assert.deepEqual(chunks[1], { type: "text_delta", delta: " world" });
+});
+
+test("runStream throws when model does not support streaming", async () => {
+  const model = new ScriptedModel([finalOutput("ok")]);
+  const agent = new AgentNode({ model });
+
+  await assert.rejects(
+    async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _ of agent.runStream("hi")) {
+        // consume
+      }
+    },
+    /Streaming is not supported/,
+  );
+});

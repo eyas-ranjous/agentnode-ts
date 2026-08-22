@@ -180,15 +180,65 @@ Run the tool-calling example:
 npx tsx examples/current-time/index.ts
 ```
 
+Run the streaming example:
+
+```bash
+npx tsx examples/stream-structured/stream.ts
+```
+
+Run the structured output example:
+
+```bash
+npx tsx examples/stream-structured/structured.ts
+```
+
 ## Supported Providers
 
 - OpenAI
 
+## Streaming
+
+```ts
+const stream = await agent.runStream("Tell me a short story.");
+
+for await (const chunk of stream) {
+  if (chunk.type === "text_delta") {
+    process.stdout.write(chunk.delta);
+  }
+}
+```
+
+Note: Streaming currently returns only the first model response and does not execute tools.
+
+## Structured Output
+
+```ts
+const agent = new AgentNode({
+  model,
+  instructions: "You are a helpful assistant.",
+  responseFormat: {
+    type: "json_schema",
+    name: "weather",
+    jsonSchema: {
+      type: "object",
+      properties: {
+        location: { type: "string" },
+        temperature: { type: "number" },
+      },
+      required: ["location", "temperature"],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+});
+
+const response = await agent.run("What's the weather in Paris?");
+console.log(response.text); // JSON string matching the schema
+```
+
 ## Roadmap
 
 - Context window management
-- Streaming responses
-- Structured output
 - Additional model providers
 - Persistent memory
 - MCP support
