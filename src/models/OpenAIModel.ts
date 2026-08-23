@@ -5,6 +5,7 @@ import type {
   Model,
   ModelInput,
   ModelOutput,
+  StreamChunk,
   ToolCall,
 } from "./Model.js";
 
@@ -25,7 +26,8 @@ export class OpenAIModel implements Model {
 
   async respond(input: ModelInput): Promise<ModelOutput> {
     const openAIInput: OpenAI.Responses.ResponseInput = input.messages.flatMap(toOpenAIInput);
-    const response = await this.client.responses.create({
+
+    const createOptions: OpenAI.Responses.ResponseCreateParams = {
       model: this.model,
       input: openAIInput,
       tools: input.tools.map((tool) => ({
@@ -35,7 +37,20 @@ export class OpenAIModel implements Model {
         parameters: tool.inputSchema,
         strict: false,
       })),
-    });
+    };
+
+    if (input.responseFormat) {
+      createOptions.text = {
+        format: {
+          type: "json_schema",
+          name: input.responseFormat.name,
+          schema: input.responseFormat.jsonSchema,
+          strict: input.responseFormat.strict ?? false,
+        },
+      };
+    }
+
+    const response = await this.client.responses.create(createOptions);
 
     const toolCalls: ToolCall[] = response.output.flatMap((item) => {
       if (item.type !== "function_call") return [];
@@ -51,6 +66,39 @@ export class OpenAIModel implements Model {
       text: response.output_text,
       toolCalls,
     };
+  }
+
+  async *respondStream(input: ModelInput): AsyncIterable<StreamChunk> {
+    const openAIInput: OpenAI.Responses.ResponseInput = input.messages.flatMap(toOpenAIInput);
+
+    const stream = await this.client.responses.create({
+      model: this.model,
+      input: openAIInput,
+      tools: input.tools.map((tool) => ({
+        type: "function",
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.inputSchema,
+        strict: false,
+      })),
+      stream: true,
+      ...(input.responseFormat && {
+        text: {
+          format: {
+            type: "json_schema",
+            name: input.responseFormat.name,
+            schema: input.responseFormat.jsonSchema,
+            strict: input.responseFormat.strict ?? false,
+          },
+        },
+      }),
+    });
+
+    for await (const event of stream) {
+      if (event.type === "response.output_text.delta") {
+        yield { type: "text_delta", delta: event.delta };
+      }
+    }
   }
 }
 
