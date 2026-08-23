@@ -17,6 +17,7 @@ const stream = await agent.runStream("Tell me a very short story about a robot."
 for await (const chunk of stream) {
   if (chunk.type === "text_delta") {
     process.stdout.write(chunk.delta);
+    await new Promise((r) => setTimeout(r, 30));
   }
 }
 
