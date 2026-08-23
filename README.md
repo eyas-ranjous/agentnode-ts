@@ -14,6 +14,8 @@ A lightweight AI agent framework for TypeScript.
 - Multi-turn conversations
 - Custom tool calling
 - Multiple tool calls in one run
+- Streaming responses
+- Structured output (JSON schema)
 - OpenAI support
 - Fully typed TypeScript API
 
