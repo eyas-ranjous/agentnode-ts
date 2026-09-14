@@ -3,6 +3,10 @@ export {
   type AgentNodeOptions,
 } from "./AgentNode.js";
 
+export { type ContextWindowOptions } from "./context/ContextWindow.js";
+
+export { estimateTokens, type TokenEstimateOptions } from "./context/estimateTokens.js";
+
 export {
   OpenAIModel,
   type OpenAIModelOptions,

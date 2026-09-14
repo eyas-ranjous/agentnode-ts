@@ -3,205 +3,129 @@
 [![npm](https://img.shields.io/npm/v/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
 [![npm](https://img.shields.io/npm/dm/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
 
-A lightweight AI agent framework for TypeScript.
+A lightweight AI agent framework for TypeScript. Connect a model, give it tools,
+and keep a conversation going across calls. Supports streaming, JSON schema
+output, and configurable context budgets, with a built-in OpenAI adapter.
 
 > [!NOTE]
-> **agentnode-ts** is under active development. APIs and capabilities may change
-> as the framework evolves.
+> Under active development. APIs and capabilities may change.
 
-## Features
+[Quick start](#quick-start) · [Tools](#tools) · [Conversations](#conversations) ·
+[Output](#output) · [Context window](#context-window) · [Examples](#examples)
 
-- Multi-turn conversations
-- Custom tool calling
-- Multiple tool calls in one run
-- Streaming responses
-- Structured output (JSON schema)
-- OpenAI support
-- Fully typed TypeScript API
+## Quick start
 
-## Installation
+Requires Node.js 20 or later.
 
 ```bash
 npm install agentnode-ts
-```
-
-Set your OpenAI API key:
-
-```bash
 export OPENAI_API_KEY="your-api-key"
 ```
 
-## Quick Start
-
 ```ts
-import {
-  AgentNode,
-  OpenAIModel,
-} from "agentnode-ts";
+import { AgentNode, OpenAIModel } from "agentnode-ts";
 
-const model = new OpenAIModel({
-  model: "gpt-4.1-mini",
-});
-
+const model = new OpenAIModel({ model: "gpt-4.1-mini" });
 const agent = new AgentNode({
   model,
   instructions: "You are a concise and helpful assistant.",
 });
 
-const response = await agent.run(
-  "Explain what an AI agent is in one sentence.",
-);
-
+const response = await agent.run("Explain what an AI agent is in one sentence.");
 console.log(response.text);
 ```
 
-## Conversations
+`run()` sends the conversation to the model, executes any requested tools, and
+feeds their results back until the model responds without tool calls. Each
+successful run saves the conversation in memory.
 
-An agent remembers earlier messages across calls to `run()`:
-
-```ts
-const firstResponse = await agent.run(
-  "My favorite color is blue.",
-);
-console.log(firstResponse.text);
-// Blue is a great choice! Is there something specific you'd like to know or discuss about the color blue?
-
-const secondResponse = await agent.run(
-  "What is my favorite color?",
-);
-console.log(secondResponse.text);
-// Your favorite color is blue.
-```
-
-You can also continue from existing history:
-
-```ts
-const history = agent.getHistory();
-const restoredAgent = new AgentNode({
-  model,
-  instructions: "You are a concise and helpful assistant.",
-  history,
-});
-
-const restoredResponse = await restoredAgent.run(
-  "What fact did I share with you?",
-);
-console.log(restoredResponse.text);
-// You shared that your favorite color is blue.
-```
-
-Use one `AgentNode` per conversation. Start over with:
-
-```ts
-agent.reset();
-```
+The examples below reuse `model` or `agent` from this setup.
 
 ## Tools
 
-Define a tool:
+A tool pairs a JSON input schema with an `execute` function. Validate arguments
+inside `execute` and return a JSON-serializable result.
 
 ```ts
-import type {
-  Tool,
-} from "agentnode-ts";
+import type { Tool } from "agentnode-ts";
 
-const getCurrentTimeTool: Tool = {
+const getCurrentTime: Tool = {
   name: "get_current_time",
   description: "Get the current date and time for an IANA time zone.",
   inputSchema: {
     type: "object",
     properties: {
-      timeZone: {
-        type: "string",
-        description: "An IANA time zone such as America/Los_Angeles.",
-      },
+      timeZone: { type: "string", description: "For example, America/Los_Angeles." },
     },
     required: ["timeZone"],
     additionalProperties: false,
   },
-
   async execute(input) {
-    const timeZone = input.timeZone;
-    if (typeof timeZone !== "string") {
+    if (typeof input.timeZone !== "string") {
       throw new Error("timeZone must be a string.");
     }
 
     return {
-      currentTime: new Intl.DateTimeFormat(
-        "en-US",
-        {
-          dateStyle: "full",
-          timeStyle: "long",
-          timeZone,
-        },
-      ).format(new Date()),
+      currentTime: new Intl.DateTimeFormat("en-US", {
+        dateStyle: "full",
+        timeStyle: "long",
+        timeZone: input.timeZone,
+      }).format(new Date()),
     };
   },
 };
-```
 
-Register the tool and run the agent:
-
-```ts
-const agent = new AgentNode({
+const timeAgent = new AgentNode({
   model,
-  instructions: "You are a concise and helpful assistant.",
-  tools: [getCurrentTimeTool],
+  tools: [getCurrentTime],
 });
 
-const response = await agent.run(
-  "What time is it in San Francisco?",
-);
-
+const response = await timeAgent.run("What time is it in San Francisco?");
 console.log(response.text);
 ```
 
-## Examples
+An agent can execute multiple tool calls in a run. `maxIterations` limits model
+calls per run and defaults to `10`; reaching the limit throws an error.
 
-From a cloned repository, install dependencies:
+## Conversations
 
-```bash
-npm install
-```
-
-Run the basic example:
-
-```bash
-npx tsx examples/basic.ts
-```
-
-Run the conversation example:
-
-```bash
-npx tsx examples/conversation/index.ts
-```
-
-Run the tool-calling example:
-
-```bash
-npx tsx examples/current-time/index.ts
-```
-
-Run the streaming example:
-
-```bash
-npx tsx examples/stream-structured/stream.ts
-```
-
-Run the structured output example:
-
-```bash
-npx tsx examples/stream-structured/structured.ts
-```
-
-## Supported Providers
-
-- OpenAI
-
-## Streaming
+Use one `AgentNode` per conversation. Calls to `run()` include previous messages:
 
 ```ts
-const stream = await agent.runStream("Tell me a short story.");
+await agent.run("My favorite color is blue.");
+const response = await agent.run("What is my favorite color?");
+console.log(response.text);
+```
+
+`getHistory()` returns a copy of the full history, including tool calls and
+results. Pass it to a new agent to continue the conversation:
+
+```ts
+const restoredAgent = new AgentNode({
+  model,
+  history: agent.getHistory(),
+});
+
+await restoredAgent.run("What fact did I share with you?");
+```
+
+Supplied `history` becomes the initial conversation, including its system
+messages. `reset()` clears the conversation and restores the constructor's
+`instructions`, if provided:
+
+```ts
+agent.reset();
+```
+
+History is kept in memory. A failed `run()` leaves saved history unchanged, though
+any tools already executed may have external effects.
+
+## Output
+
+### Streaming text
+
+```ts
+const stream = agent.runStream("Tell me a short story.");
 
 for await (const chunk of stream) {
   if (chunk.type === "text_delta") {
@@ -210,41 +134,122 @@ for await (const chunk of stream) {
 }
 ```
 
-Note: Streaming currently returns only the first model response and does not execute tools.
+Streaming uses the existing conversation but currently returns only the first
+model response. It does not execute tools or save the streamed turn to history.
+The model adapter must support streaming.
 
-## Structured Output
+### Structured JSON
+
+Use `responseFormat` to request output matching a JSON schema. The response is
+returned as a JSON string in `response.text`.
 
 ```ts
-const agent = new AgentNode({
+const extractionAgent = new AgentNode({
   model,
-  instructions: "You are a helpful assistant.",
   responseFormat: {
     type: "json_schema",
-    name: "weather",
+    name: "person",
     jsonSchema: {
       type: "object",
       properties: {
-        location: { type: "string" },
-        temperature: { type: "number" },
+        name: { type: "string" },
+        city: { type: "string" },
       },
-      required: ["location", "temperature"],
+      required: ["name", "city"],
       additionalProperties: false,
     },
     strict: true,
   },
 });
 
-const response = await agent.run("What's the weather in Paris?");
-console.log(response.text); // JSON string matching the schema
+const response = await extractionAgent.run("Extract the person: Ada lives in London.");
+console.log(JSON.parse(response.text));
 ```
+
+## Context window
+
+Set an input token budget to limit how much history the model receives:
+
+```ts
+const budgetedAgent = new AgentNode({
+  model,
+  contextWindow: { maxInputTokens: 8_000 },
+});
+```
+
+Before each model call, including tool-loop iterations and streaming, the agent
+removes the oldest complete turns until the request fits. It keeps system
+messages and the entire current user turn, including tool calls and results.
+If those messages and request definitions cannot fit, it throws before calling
+the model.
+
+Trimming only affects model input. `getHistory()` still returns the full
+conversation, so this does not limit memory usage. Without `contextWindow`, the
+agent sends all history.
+
+The default token estimate includes messages, tools, and the response schema,
+plus a 20% safety margin. It is approximate and can underestimate some inputs.
+Leave room for output and estimation error when choosing `maxInputTokens`; this
+option does not set the provider's output-token limit.
+
+<details>
+<summary>Customize token counting</summary>
+
+Use the exported estimator with a different safety margin, or supply your own
+counter using the model's tokenizer and request format:
+
+```ts
+import { estimateTokens } from "agentnode-ts";
+
+const budgetedAgent = new AgentNode({
+  model,
+  contextWindow: {
+    maxInputTokens: 8_000,
+    countTokens: (input) => estimateTokens(input, { safetyMargin: 0.3 }),
+  },
+});
+```
+
+`countTokens` receives a copy of the candidate `ModelInput` and must return a
+non-negative safe integer. Include the whole request, including tool definitions,
+the response schema, and provider overhead.
+
+`estimateTokens` uses four ASCII characters per token and one token per non-ASCII
+UTF-8 byte. It adds framing allowances of 4 tokens per message or tool call, 8 per
+definition, and 3 per request before applying the safety margin. These heuristics
+can overcount Unicode text and underestimate ASCII code or unusual strings; they
+are not a guaranteed upper bound.
+
+`safetyMargin` accepts values from `0` to `1`: `0` disables padding, `0.3` adds
+30%, and `1` doubles the estimate.
+
+</details>
+
+## Examples
+
+From a cloned repository, run `npm install` and set `OPENAI_API_KEY`. Run an
+example with `npx tsx <path>`:
+
+| Example | Path |
+| --- | --- |
+| Basic response | [examples/basic.ts](examples/basic.ts) |
+| Conversation history | [examples/conversation/index.ts](examples/conversation/index.ts) |
+| Tool calling | [examples/current-time/index.ts](examples/current-time/index.ts) |
+| Streaming | [examples/stream-structured/stream.ts](examples/stream-structured/stream.ts) |
+| Structured output | [examples/stream-structured/structured.ts](examples/stream-structured/structured.ts) |
 
 ## Roadmap
 
-- Context window management
-- Additional model providers
-- Persistent memory
+- Cancellation and timeouts
+- Lifecycle events for model calls, tool execution, and run completion
+- Streaming with tool execution and conversation history
+- A second model provider to validate the shared interfaces
+- Tool execution controls to approve, reject, or modify calls
+- Token usage reporting and per-run budgets
 - MCP support
-- Multi-step planning
+- Pluggable conversation storage across restarts
+- Advanced context strategies (summarization and token-aware compaction)
+- Optional multi-step planning
 
 ## License
 

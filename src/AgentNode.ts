@@ -1,10 +1,13 @@
 import type {
   Message,
   Model,
+  ModelInput,
   ModelOutput,
   ResponseFormat,
   StreamChunk,
 } from "./models/Model.js";
+
+import { ContextWindow, type ContextWindowOptions } from "./context/ContextWindow.js";
 
 import {
   type AgentSession,
@@ -26,6 +29,7 @@ export type AgentNodeOptions = {
   maxIterations?: number;
   history?: readonly Message[];
   responseFormat?: ResponseFormat;
+  contextWindow?: ContextWindowOptions;
 };
 
 export class AgentNode {
@@ -37,6 +41,7 @@ export class AgentNode {
   private readonly maxIterations: number;
   private readonly responseFormat: ResponseFormat | undefined;
   private readonly session: AgentSession;
+  private readonly contextWindow: ContextWindow | undefined;
 
   constructor(options: AgentNodeOptions) {
     this.model = options.model;
@@ -44,6 +49,9 @@ export class AgentNode {
     this.tools = options.tools ?? [];
     this.maxIterations = options.maxIterations ?? 10;
     this.responseFormat = options.responseFormat;
+    this.contextWindow = options.contextWindow
+      ? new ContextWindow(options.contextWindow)
+      : undefined;
     this.toolRegistry = new Map();
 
     for (const tool of this.tools) {
@@ -91,14 +99,7 @@ export class AgentNode {
     }
 
     const messages = this.getHistoryForStream(input);
-    const streamInput: Parameters<NonNullable<typeof this.model.respondStream>>[0] = {
-      messages,
-      tools: this.toolDefinitions,
-    };
-    if (this.responseFormat) {
-      streamInput.responseFormat = this.responseFormat;
-    }
-    yield* this.model.respondStream(streamInput);
+    yield* this.model.respondStream(this.getModelInput(messages));
   }
 
   private getHistoryForStream(input: string): Message[] {
@@ -115,16 +116,17 @@ export class AgentNode {
     this.session.reset();
   }
 
+  private getModelInput(messages: Message[]): ModelInput {
+    const input: ModelInput = { messages, tools: this.toolDefinitions };
+    if (this.responseFormat) {
+      input.responseFormat = this.responseFormat;
+    }
+    return this.contextWindow?.apply(input) ?? input;
+  }
+
   private async runLoop(messages: Message[]): Promise<ModelOutput> {
     for (let iteration = 0; iteration < this.maxIterations; iteration += 1) {
-      const respondInput: Parameters<typeof this.model.respond>[0] = {
-        messages,
-        tools: this.toolDefinitions,
-      };
-      if (this.responseFormat) {
-        respondInput.responseFormat = this.responseFormat;
-      }
-      const output = await this.model.respond(respondInput);
+      const output = await this.model.respond(this.getModelInput(messages));
 
       messages.push({
         role: "assistant",
