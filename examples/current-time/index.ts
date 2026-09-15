@@ -1,15 +1,11 @@
-import {
-  AgentNode,
-  OpenAIModel,
-} from "../../src/index.js";
+import { AgentNode } from "../../src/index.js";
+import { openai } from "../../src/openai.js";
 
 import {
   getCurrentTimeTool,
 } from "./getCurrentTimeTool.js";
 
-const model = new OpenAIModel({
-  model: "gpt-4.1-mini",
-});
+const model = openai("gpt-4.1-mini");
 
 const agent = new AgentNode({
   model,
