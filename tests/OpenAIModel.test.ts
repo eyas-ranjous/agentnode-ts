@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  OpenAIModel,
-  type ModelInput,
-} from "../src/index.js";
+import type { ModelInput } from "../src/index.js";
+import { OpenAIModel, openai } from "../src/openai.js";
 
 test("translates normalized messages and tools to an OpenAI request", async () => {
   const mock = mockOpenAIResponse({
@@ -22,10 +20,7 @@ test("translates normalized messages and tools to an OpenAI request", async () =
     }],
     output_text: "",
   });
-  const model = new OpenAIModel({
-    model: "test-model",
-    apiKey: "test-key",
-  });
+  const model = openai("test-model", { apiKey: "test-key" });
   const input: ModelInput = {
     messages: [
       {

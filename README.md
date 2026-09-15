@@ -3,29 +3,32 @@
 [![npm](https://img.shields.io/npm/v/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
 [![npm](https://img.shields.io/npm/dm/agentnode-ts.svg)](https://www.npmjs.com/package/agentnode-ts)
 
-A lightweight AI agent framework for TypeScript. Connect a model, give it tools,
-and keep a conversation going across calls. Supports streaming, JSON schema
-output, and configurable context budgets, with a built-in OpenAI adapter.
+A lightweight TypeScript agent framework with tools, conversation history,
+streaming, structured output, and context budgets. Includes an OpenAI adapter.
 
 > [!NOTE]
 > Under active development. APIs and capabilities may change.
 
-[Quick start](#quick-start) · [Tools](#tools) · [Conversations](#conversations) ·
-[Output](#output) · [Context window](#context-window) · [Examples](#examples)
+[Quick start](#quick-start) · [Usage](#usage) · [Examples](#examples) · [Roadmap](#roadmap)
 
 ## Quick start
 
-Requires Node.js 20 or later.
+Requires Node.js 20 or later. This example uses OpenAI.
 
 ```bash
-npm install agentnode-ts
+npm install agentnode-ts openai
 export OPENAI_API_KEY="your-api-key"
 ```
 
-```ts
-import { AgentNode, OpenAIModel } from "agentnode-ts";
+Install `openai` only if you use the OpenAI adapter. It reads `OPENAI_API_KEY`
+by default, or accepts a key through `openai(modelName, { apiKey })`.
+For other providers, pass an adapter that implements the framework's `Model` interface.
 
-const model = new OpenAIModel({ model: "gpt-4.1-mini" });
+```ts
+import { AgentNode } from "agentnode-ts";
+import { openai } from "agentnode-ts/openai";
+
+const model = openai("gpt-4.1-mini");
 const agent = new AgentNode({
   model,
   instructions: "You are a concise and helpful assistant.",
@@ -35,13 +38,104 @@ const response = await agent.run("Explain what an AI agent is in one sentence.")
 console.log(response.text);
 ```
 
-`run()` sends the conversation to the model, executes any requested tools, and
-feeds their results back until the model responds without tool calls. Each
-successful run saves the conversation in memory.
+`run()` executes requested tools and feeds results back until the model finishes.
+Successful runs save the conversation in memory.
 
-The examples below reuse `model` or `agent` from this setup.
+## Usage
 
-## Tools
+The examples below reuse `model` or `agent` from the quick start.
+
+- [Conversations](#conversations): continue, restore, or reset a conversation.
+- [Context window](#context-window): keep model input within a token budget.
+- [Tools](#tools): let the agent call your functions.
+- [Streaming text](#streaming-text): display a response as it arrives.
+- [Structured JSON](#structured-json): request output matching a schema.
+
+### Conversations
+
+Use one `AgentNode` per conversation. Calls to `run()` include previous messages:
+
+```ts
+await agent.run("My favorite color is blue.");
+const response = await agent.run("What is my favorite color?");
+console.log(response.text);
+```
+
+#### Restore a conversation
+
+Pass a copy of the full history, including tool calls and results, to a new agent:
+
+```ts
+const restoredAgent = new AgentNode({
+  model,
+  history: agent.getHistory(),
+});
+
+await restoredAgent.run("What fact did I share with you?");
+```
+
+Supplied `history` becomes the initial conversation, including its system
+messages.
+
+#### Reset a conversation
+
+`reset()` clears the conversation and restores the constructor's `instructions`,
+if provided:
+
+```ts
+agent.reset();
+```
+
+A failed `run()` leaves saved history unchanged, but does not undo executed tools.
+
+### Context window
+
+Set an input token budget to limit how much history the model receives:
+
+```ts
+const budgetedAgent = new AgentNode({
+  model,
+  contextWindow: { maxInputTokens: 8_000 },
+});
+```
+
+Before each model call, including streaming, the agent drops oldest complete turns
+to fit the budget. System messages and the current turn, including tool calls and
+results, are retained. If these and request definitions exceed the budget, it throws.
+
+Trimming leaves saved history intact and does not limit memory usage.
+Without `contextWindow`, all history is sent.
+
+The default estimate includes the whole request plus a 20% safety margin, but can
+underestimate. Leave room for output and estimation error; `maxInputTokens` does
+not set the provider's output limit.
+
+#### Customize token counting
+
+Adjust the safety margin or supply your own token counter:
+
+```ts
+import { estimateTokens } from "agentnode-ts";
+
+const budgetedAgent = new AgentNode({
+  model,
+  contextWindow: {
+    maxInputTokens: 8_000,
+    countTokens: (input) => estimateTokens(input, { safetyMargin: 0.3 }),
+  },
+});
+```
+
+`countTokens` receives a copy of `ModelInput` and must return a non-negative safe
+integer covering messages, tool definitions, the response schema, and provider overhead.
+
+`estimateTokens` approximates ASCII text and conservatively counts non-ASCII bytes,
+then adds framing overhead and the safety margin. It is not an exact tokenizer.
+
+`safetyMargin` accepts values from `0` to `1`: `0` disables padding, `0.3` adds
+30%, and `1` doubles the estimate.
+
+### Tools
 
 A tool pairs a JSON input schema with an `execute` function. Validate arguments
 inside `execute` and return a JSON-serializable result.
@@ -84,43 +178,8 @@ const response = await timeAgent.run("What time is it in San Francisco?");
 console.log(response.text);
 ```
 
-An agent can execute multiple tool calls in a run. `maxIterations` limits model
-calls per run and defaults to `10`; reaching the limit throws an error.
-
-## Conversations
-
-Use one `AgentNode` per conversation. Calls to `run()` include previous messages:
-
-```ts
-await agent.run("My favorite color is blue.");
-const response = await agent.run("What is my favorite color?");
-console.log(response.text);
-```
-
-`getHistory()` returns a copy of the full history, including tool calls and
-results. Pass it to a new agent to continue the conversation:
-
-```ts
-const restoredAgent = new AgentNode({
-  model,
-  history: agent.getHistory(),
-});
-
-await restoredAgent.run("What fact did I share with you?");
-```
-
-Supplied `history` becomes the initial conversation, including its system
-messages. `reset()` clears the conversation and restores the constructor's
-`instructions`, if provided:
-
-```ts
-agent.reset();
-```
-
-History is kept in memory. A failed `run()` leaves saved history unchanged, though
-any tools already executed may have external effects.
-
-## Output
+`maxIterations` caps model calls per run (default: `10`). If the model has not
+finished by then, the run throws.
 
 ### Streaming text
 
@@ -165,65 +224,6 @@ const extractionAgent = new AgentNode({
 const response = await extractionAgent.run("Extract the person: Ada lives in London.");
 console.log(JSON.parse(response.text));
 ```
-
-## Context window
-
-Set an input token budget to limit how much history the model receives:
-
-```ts
-const budgetedAgent = new AgentNode({
-  model,
-  contextWindow: { maxInputTokens: 8_000 },
-});
-```
-
-Before each model call, including tool-loop iterations and streaming, the agent
-removes the oldest complete turns until the request fits. It keeps system
-messages and the entire current user turn, including tool calls and results.
-If those messages and request definitions cannot fit, it throws before calling
-the model.
-
-Trimming only affects model input. `getHistory()` still returns the full
-conversation, so this does not limit memory usage. Without `contextWindow`, the
-agent sends all history.
-
-The default token estimate includes messages, tools, and the response schema,
-plus a 20% safety margin. It is approximate and can underestimate some inputs.
-Leave room for output and estimation error when choosing `maxInputTokens`; this
-option does not set the provider's output-token limit.
-
-<details>
-<summary>Customize token counting</summary>
-
-Use the exported estimator with a different safety margin, or supply your own
-counter using the model's tokenizer and request format:
-
-```ts
-import { estimateTokens } from "agentnode-ts";
-
-const budgetedAgent = new AgentNode({
-  model,
-  contextWindow: {
-    maxInputTokens: 8_000,
-    countTokens: (input) => estimateTokens(input, { safetyMargin: 0.3 }),
-  },
-});
-```
-
-`countTokens` receives a copy of the candidate `ModelInput` and must return a
-non-negative safe integer. Include the whole request, including tool definitions,
-the response schema, and provider overhead.
-
-`estimateTokens` uses four ASCII characters per token and one token per non-ASCII
-UTF-8 byte. It adds framing allowances of 4 tokens per message or tool call, 8 per
-definition, and 3 per request before applying the safety margin. These heuristics
-can overcount Unicode text and underestimate ASCII code or unusual strings; they
-are not a guaranteed upper bound.
-
-`safetyMargin` accepts values from `0` to `1`: `0` disables padding, `0.3` adds
-30%, and `1` doubles the estimate.
-
-</details>
 
 ## Examples
 
